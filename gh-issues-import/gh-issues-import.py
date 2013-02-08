@@ -14,20 +14,31 @@ server = "api.github.com"
 src_url = "https://%s/repos/%s" % (server, src_repo)
 dst_url = "https://%s/repos/%s" % (server, dst_repo)
 
+def request(logging_context, url, body=None):
+	if body:
+		print "Request[%s]: %s w/ body=%s" % (logging_context, url, body)
+	else :
+		print "Request[%s]: %s" % (logging_context, url)
+	req = urllib2.Request(url, body)
+	req.add_header("Authorization", "Basic " + base64.urlsafe_b64encode("%s:%s" % (username, password)))
+	req.add_header("Content-Type", "application/json")
+	req.add_header("Accept", "application/json")
+	return urllib2.urlopen(req)
+
 def get_milestones(url):
-	response = urllib2.urlopen("%s/milestones?state=open" % url)
+	response = request('get_milestones', "%s/milestones?state=open" % url)
 	result = response.read()
 	milestones = json.load(StringIO(result))
 	return milestones
 
 def get_labels(url):
-	response = urllib2.urlopen("%s/labels" % url)
+	response = request('get_labels', "%s/labels" % url)
 	result = response.read()
 	labels = json.load(StringIO(result))
 	return labels
 
 def get_issues(url):
-	response = urllib2.urlopen("%s/issues" % url)
+	response = request('get_issues', "%s/issues?state=closed" % url)
 	result = response.read()
 	issues = json.load(StringIO(result))
 	return issues
@@ -36,7 +47,7 @@ def get_comments_on_issue(issue):
 	if issue.has_key("comments") \
 	  and issue["comments"] is not None \
 	  and issue["comments"] != 0:
-		response = urllib2.urlopen("%s/comments" % issue["url"])
+		response = request('get_comments_on_issue', "%s/comments" % issue["url"])
 		result = response.read()
 		comments = json.load(StringIO(result))
 		return comments
@@ -51,12 +62,7 @@ def import_milestones(milestones):
 			"description": source["description"],
 			"due_on": source["due_on"]})
 
-		req = urllib2.Request("%s/milestones" % dst_url, dest)
-		req.add_header("Authorization", "Basic " + base64.urlsafe_b64encode("%s:%s" % (username, password)))
-		req.add_header("Content-Type", "application/json")
-		req.add_header("Accept", "application/json")
-		res = urllib2.urlopen(req)
-		
+		res = request('import_milestones', "%s/milestones" % dst_url, dest)
 		data = res.read()
 		res_milestone = json.load(StringIO(data))
 		print "Successfully created milestone %s" % res_milestone["title"]
@@ -68,12 +74,7 @@ def import_labels(labels):
 			"color": source["color"]
 		})
 
-		req = urllib2.Request("%s/labels" % dst_url, dest)
-		req.add_header("Authorization", "Basic " + base64.urlsafe_b64encode("%s:%s" % (username, password)))
-		req.add_header("Content-Type", "application/json")
-		req.add_header("Accept", "application/json")
-		res = urllib2.urlopen(req)
-
+		res = request('import_labels', "%s/labels" % dst_url, dest)
 		data = res.read()
 		res_label = json.load(StringIO(data))
 		print "Successfully created label %s" % res_label["name"]
@@ -107,21 +108,16 @@ def import_issues(issues, dst_milestones, dst_labels):
 
 		dest = json.dumps({
 			"title": source["title"],
-		    "body": body,
-		    "assignee": assignee,
-		    "milestone": milestone,
-		    "labels": labels
+			"body": body,
+			"assignee": assignee,
+			"milestone": milestone,
+			"labels": labels
 		})
 
 		comments = get_comments_on_issue(source)
 		#todo: insert logic on comments if needed
 
-		req = urllib2.Request("%s/issues" % dst_url, dest)
-		req.add_header("Authorization", "Basic " + base64.urlsafe_b64encode("%s:%s" % (username, password)))
-		req.add_header("Content-Type", "application/json")
-		req.add_header("Accept", "application/json")
-		res = urllib2.urlopen(req)
-
+		res = request('import_issues', "%s/issues" % dst_url, dest)
 		data = res.read()
 		res_issue = json.load(StringIO(data))
 		print "Successfully created issue %s" % res_issue["title"]
@@ -130,6 +126,7 @@ def main():
 	#get milestones and issues to import
 	milestones = get_milestones(src_url)
 	labels = get_labels(src_url)
+
 	#do import
 	import_milestones(milestones)
 	import_labels(labels)
