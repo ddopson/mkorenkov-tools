@@ -38,6 +38,12 @@ def get_labels(url):
 	return labels
 
 def get_issues(url):
+	response = request('get_issues', "%s/issues" % url)
+	result = response.read()
+	issues = json.load(StringIO(result))
+	return issues
+
+def get_issues_closed(url):
 	response = request('get_issues', "%s/issues?state=closed" % url)
 	result = response.read()
 	issues = json.load(StringIO(result))
@@ -137,7 +143,9 @@ def main():
 
 	#process issues
 	issues = get_issues(src_url)
+	issues_closed = get_issues(src_url)
 	import_issues(issues, milestones, labels)
+	import_issues(issues_closed, milestones, labels)
 
 
 if __name__ == '__main__':
